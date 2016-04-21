@@ -166,7 +166,6 @@ if (navigator.getUserMedia) {
         }, 100);
       }
 
-
       deleteButton.onclick = function(e) {
         evtTgt = e.target;
         evtTgt.parentNode.parentNode.removeChild(evtTgt.parentNode);
@@ -207,7 +206,6 @@ function visualize(stream) {
 
   source.connect(analyser);
   //analyser.connect(audioCtx.destination);
-
   WIDTH = canvas.width
   HEIGHT = canvas.height;
 
@@ -232,7 +230,6 @@ function visualize(stream) {
 
 
     for(var i = 0; i < bufferLength; i++) {
-
       var v = dataArray[i] / 128.0;
       var y = v * HEIGHT/2;
 

@@ -6,6 +6,28 @@ navigator.getUserMedia = ( navigator.getUserMedia ||
                        navigator.mozGetUserMedia ||
                        navigator.msGetUserMedia);
 
+var uagent = navigator.userAgent.toLowerCase();
+if (/edge/.test(uagent)) {
+ uagent = 'edge';
+} else if (/opr/.test(uagent) || /opera/.test(uagent)) {
+ uagent = 'opera';
+} else if (/firefox/.test(uagent)) {
+ uagent = 'firefox';
+} else if (/chrome/.test(uagent) && !/opr/.test(uagent) && !/opera/.test(uagent)) {
+ uagent = 'chrome';
+} else if (/safari/.test(uagent) && !/chrome/.test(uagent) && !/opr/.test(uagent) && !/opera/.test(uagent)) {
+ uagent = 'safari';
+} else {
+ uagent = 'undefined';
+}
+
+// Chrome needs a secure origin
+var isSecureOrigin = (location.protocol === 'https:' || /localhost/.test(location.host));
+if ((uagent === 'chrome') && (!isSecureOrigin)) {
+  alert('Changing to secure origin');
+  location.protocol = 'HTTPS';
+}
+
 // set up basic variables for app
 
 var record = document.querySelector('.record');
@@ -25,10 +47,11 @@ var canvasCtx = canvas.getContext("2d");
 //main block for doing the audio recording
 
 if (navigator.getUserMedia) {
-  console.log('getUserMedia supported.');
+  //console.log('getUserMedia supported.');
 
   var constraints = { audio: true };
   var chunks = [];
+  var mimeType, audioURL;
 
   var onSuccess = function(stream) {
     var mediaRecorder = new MediaRecorder(stream);
@@ -37,8 +60,8 @@ if (navigator.getUserMedia) {
 
     record.onclick = function() {
       mediaRecorder.start();
-      console.log(mediaRecorder.state);
-      console.log("recorder started");
+      //console.log(mediaRecorder.state);
+      //console.log("recorder started");
       record.style.background = "red";
 
       stop.disabled = false;
@@ -47,8 +70,8 @@ if (navigator.getUserMedia) {
 
     stop.onclick = function() {
       mediaRecorder.stop();
-      console.log(mediaRecorder.state);
-      console.log("recorder stopped");
+      //console.log(mediaRecorder.state);
+      //console.log("recorder stopped");
       record.style.background = "";
       record.style.color = "";
       // mediaRecorder.requestData();
@@ -58,19 +81,22 @@ if (navigator.getUserMedia) {
     }
 
     mediaRecorder.onstop = function(e) {
-      console.log("data available after MediaRecorder.stop() called.");
+      //console.log("data available after MediaRecorder.stop() called.");
 
       var clipName = prompt('Enter a name for your sound clip?','My unnamed clip');
-      console.log(clipName);
+      //console.log(clipName);
       var clipContainer = document.createElement('article');
       var clipLabel = document.createElement('p');
       var audio = document.createElement('audio');
       var deleteButton = document.createElement('button');
-     
+      var downloadButton = document.createElement('button');
+
       clipContainer.classList.add('clip');
       audio.setAttribute('controls', '');
       deleteButton.textContent = 'Delete';
       deleteButton.className = 'delete';
+      downloadButton.textContent = 'Download';
+      downloadButton.className = 'download';
 
       if(clipName === null) {
         clipLabel.textContent = 'My unnamed clip';
@@ -80,15 +106,66 @@ if (navigator.getUserMedia) {
 
       clipContainer.appendChild(audio);
       clipContainer.appendChild(clipLabel);
+      clipContainer.appendChild(downloadButton);
       clipContainer.appendChild(deleteButton);
       soundClips.appendChild(clipContainer);
 
       audio.controls = true;
-      var blob = new Blob(chunks, { 'type' : 'audio/ogg; codecs=opus' });
-      chunks = [];
-      var audioURL = window.URL.createObjectURL(blob);
-      audio.src = audioURL;
-      console.log("recorder stopped");
+      if (uagent === 'firefox') {
+        // default for firefox
+        //'audio/ogg;codecs=opus'
+        mimeType = 'audio/ogg;codecs=opus';
+      }
+      if (uagent === 'chrome') {
+        // chrome
+        // 'audio/webm;codecs=opus'
+        if (MediaRecorder.isTypeSupported) {
+          console.log('MediaRecorder.isTypeSupported true');
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            mimeType = 'audio/webm;codecs=opus';
+          } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+            mimeType = 'audio/webm';
+          }
+        }
+      }
+      console.log('mimeType:', mimeType);
+      try {
+        var blob = new Blob(chunks, {type: mimeType});
+        chunks = [];
+      } catch(e) {
+        console.log('Error making blob');
+      }
+      try {
+        audioURL = window.URL.createObjectURL(blob);
+      } catch(e) {
+        console.log('Error making objectURL');
+      }
+      try {
+        audio.src = audioURL;
+      } catch(e) {
+        console.log('<audio> does not like the source');
+      }
+      //console.log("recorder stopped");
+
+      downloadButton.onclick = function(e) {
+        //var blob = new Blob(chunks, {type: mimeType});
+        //var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = audioURL;
+        if (/ogg/.test(mimeType)) {
+          a.download = 'test.ogg';
+        } else if (/webm/.test(mimeType)) {
+          a.download = 'test.webm';
+        }
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          document.body.removeChild(a);
+          //window.URL.revokeObjectURL(url);
+        }, 100);
+      }
+
 
       deleteButton.onclick = function(e) {
         evtTgt = e.target;
@@ -112,7 +189,7 @@ if (navigator.getUserMedia) {
   }
 
   var onError = function(err) {
-    console.log('The following error occured: ' + err);
+    console.log('The following error occured: ', err);
   }
 
   navigator.getUserMedia(constraints, onSuccess, onError);
@@ -130,7 +207,7 @@ function visualize(stream) {
 
   source.connect(analyser);
   //analyser.connect(audioCtx.destination);
-  
+
   WIDTH = canvas.width
   HEIGHT = canvas.height;
 
@@ -155,7 +232,7 @@ function visualize(stream) {
 
 
     for(var i = 0; i < bufferLength; i++) {
- 
+
       var v = dataArray[i] / 128.0;
       var y = v * HEIGHT/2;
 
@@ -173,4 +250,3 @@ function visualize(stream) {
 
   }
 }
-

@@ -102,10 +102,12 @@ audio {
   float: right;
 }
 
-button.delete {
+button.delete, button.download {
   background: #f00;
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 /* Checkbox hack to control information box display */
